@@ -49,13 +49,21 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .backup-age.warn { color: var(--warn); font-weight: 700; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
-.wrap { max-width: 640px; margin: 0 auto; padding-block: 20px 48px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: grid; gap: 22px; }
+html { font-size: 14px; }
+html[data-size="small"] { font-size: 13px; }
+html[data-size="large"] { font-size: 16px; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 1rem; line-height: 1.4; }
+.wrap { max-width: 640px; margin: 0 auto; padding-block: 12px 40px;
+  padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 14px; }
 h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
-h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.01em; }
-h2 { font-size: 1.15rem; font-weight: 600; }
+h1 { font-size: 1.45rem; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.1rem; font-weight: 600; }
+.topline { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sizer { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.sizer button { font-family: var(--font-body); font-weight: 700; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 8px; min-width: 34px; height: 32px; cursor: pointer; line-height: 1; }
+.sizer button[aria-pressed="true"] { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
 .eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
 header { display: grid; gap: 4px; }
 header p { margin: 0; color: var(--muted); }
@@ -63,24 +71,25 @@ header p { margin: 0; color: var(--muted); }
 .status.warn { color: var(--warn); }
 
 /* Summary */
-.summary { background: var(--brand); color: var(--brand-ink); border-radius: 14px; padding: 16px; display: grid; gap: 14px; }
+.summary { background: var(--brand); color: var(--brand-ink); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
 .periods { display: flex; gap: 6px; flex-wrap: wrap; }
 .periods button { font: inherit; font-size: 0.85rem; border: 1px solid color-mix(in srgb, var(--brand-ink) 40%, transparent);
   background: transparent; color: var(--brand-ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
 .periods button[aria-pressed="true"] { background: var(--brand-ink); color: var(--brand); font-weight: 700; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .stat { display: grid; gap: 2px; min-width: 0; }
-.stat .v { font-family: var(--font-num); font-weight: 700; font-size: 1.3rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .v { font-family: var(--font-num); font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .stat .l { font-size: 0.78rem; opacity: 0.85; }
 .summary .note { font-size: 0.8rem; opacity: 0.85; margin: 0; }
 
 /* Panels */
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 460px) { .grid2 { grid-template-columns: 1fr; } }
 label { display: grid; gap: 4px; font-size: 0.85rem; font-weight: 700; color: var(--muted); min-width: 0; }
 input, select, textarea { font: inherit; font-weight: 400; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
-  border-radius: 9px; padding: 10px 11px; width: 100%; min-width: 0; }
+  border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0; font-size: 16px; }
+html[data-size="small"] input, html[data-size="small"] select, html[data-size="small"] textarea { font-size: 16px; }
 textarea { resize: vertical; min-height: 2.6em; }
 input.odo { font-family: var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; background: var(--odo-bg); color: var(--odo-fg); border-color: var(--odo-bg); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--sun); outline-offset: 1px; }
@@ -88,7 +97,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .calc { background: var(--sun-soft); border-radius: 10px; padding: 10px 12px; font-size: 0.92rem; }
 .calc strong { font-family: var(--font-num); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.btn { font: inherit; font-weight: 700; border-radius: 10px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--brand); background: var(--brand); color: var(--brand-ink); }
+.btn { font: inherit; font-weight: 700; border-radius: 9px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--brand); background: var(--brand); color: var(--brand-ink); }
 .btn.ghost { background: transparent; color: var(--brand); }
 .btn.small { padding: 6px 11px; font-size: 0.85rem; }
 .btn.danger { border-color: var(--warn); background: var(--warn); color: #fff; }
@@ -129,8 +138,16 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
 <div class="wrap">
   <header>
     <span class="eyebrow">Lucinda Errand Running Services</span>
-    <h1>Trip Log</h1>
-    <p>Record the kilometres for every errand. The first <span id="freeKmTxt">5</span> km of each trip are free; extra travel is charged at <span id="rateTxt">R5,00</span> per km.</p>
+    <div class="topline">
+      <h1>Trip Log</h1>
+      <div class="sizer" role="group" aria-label="Text size">
+        <span>Text</span>
+        <button type="button" data-size="small" aria-label="Small text" style="font-size:12px">A</button>
+        <button type="button" data-size="medium" aria-label="Medium text" style="font-size:15px">A</button>
+        <button type="button" data-size="large" aria-label="Large text" style="font-size:19px">A</button>
+      </div>
+    </div>
+    <p>First <span id="freeKmTxt">5</span> km free, then <span id="rateTxt">R5,00</span> per km.</p>
     <span class="status" id="status">Connecting…</span>
   </header>
 
@@ -548,6 +565,17 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
     downloadFile(`LERS-trips-${period}-${todayISO()}.csv`, "﻿" + csv, "text/csv");
     toast("CSV saved to Downloads");
   }
+
+  // ---------- text size ----------
+  function applySize(s) {
+    if (s === "medium") document.documentElement.removeAttribute("data-size"); else document.documentElement.setAttribute("data-size", s);
+    document.querySelectorAll(".sizer button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.size === s)));
+  }
+  let savedSize = "medium"; try { savedSize = localStorage.getItem("lers-text-size") || "medium"; } catch {}
+  applySize(savedSize);
+  document.querySelectorAll(".sizer button").forEach((b) => b.addEventListener("click", () => {
+    applySize(b.dataset.size); try { localStorage.setItem("lers-text-size", b.dataset.size); } catch {}
+  }));
 
   // ---------- boot ----------
   $("fDate").value = todayISO();
