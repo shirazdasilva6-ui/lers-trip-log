@@ -217,7 +217,7 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
     <div class="list-head">
       <h2 id="listTitle">Trips</h2>
       <div class="actions">
-        <button class="btn ghost small" type="button" id="copyAllBtn">Copy period summary</button>      </div>
+        <button class="btn ghost small" type="button" id="copyAllBtn">Send summary</button>      </div>
     </div>
     <div id="copyArea" hidden style="display:grid;gap:6px">
       <p class="hint">Copying is blocked here. Select the text below and copy it.</p>
@@ -242,7 +242,7 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
 
   <section class="panel" aria-labelledby="backupTitle">
     <h2 id="backupTitle">Backup</h2>
-    <p class="hint">Your trips are only kept on this phone. Once a week, tap <b>Send backup</b> and send it to yourself on WhatsApp. The backup is a normal spreadsheet you can open and read.</p>
+    <p class="hint">Your trips are only kept on this phone. Once a week, tap <b>Send backup</b> and send it to yourself on WhatsApp. Tap the backup in WhatsApp to see all your trips. No extra apps needed.</p>
     <p class="hint backup-age" id="backupAge">No backup saved yet.</p>
     <div class="actions">
       <button class="btn" type="button" id="shareBackupBtn">Send backup (WhatsApp / email)</button>
@@ -254,7 +254,7 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
         <p class="hint">Open WhatsApp, tap your latest backup file to download it, then come back here and choose it.</p>
         <div class="actions" id="restoreActions">
           <label class="btn ghost small" for="restoreFile" style="display:inline-block">Choose backup file</label>
-          <input type="file" id="restoreFile" accept=".csv,text/csv,.json,application/json,text/comma-separated-values" hidden>
+          <input type="file" id="restoreFile" accept=".html,.htm,text/html,.csv,text/csv,.json,application/json,text/comma-separated-values" hidden>
         </div>
       </div>
     </details>
@@ -405,8 +405,8 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
       };
       fin.append(lab, b); card.append(fin);
     } else {
-      const cp = el("button", "btn ghost small", "Copy for WhatsApp"); cp.type = "button";
-      cp.onclick = () => copyText(tripText(t), "Trip copied. Paste it in WhatsApp.");
+      const cp = el("button", "btn ghost small", "Send to WhatsApp"); cp.type = "button";
+      cp.onclick = () => shareText(tripText(t), "Trip copied. Paste it in WhatsApp.");
       acts.append(cp);
     }
     const del = el("button", "btn ghost small", "Delete"); del.type = "button";
@@ -497,7 +497,7 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
     document.querySelectorAll(".periods button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     render();
   }));
-  $("copyAllBtn").addEventListener("click", () => copyText(periodText(), "Summary copied. Paste it in WhatsApp."));
+  $("copyAllBtn").addEventListener("click", () => shareText(periodText(), "Summary copied. Paste it in WhatsApp."));
 
   $("saveRates").addEventListener("click", async () => {
     const f = num($("setFree").value), r = num($("setRate").value);
@@ -546,7 +546,8 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
   // ---------- files (backup / restore / CSV) ----------
   const BKEY = "lers-last-backup-v1";
   function downloadFile(filename, text, type) {
-    const url = URL.createObjectURL(new Blob([text], { type }));
+    // octet-stream makes phones save the file instead of opening it in the app's tab
+    const url = URL.createObjectURL(new Blob([text], { type: type === "text/html" ? "application/octet-stream" : type }));
     const a = document.createElement("a"); a.href = url; a.download = filename;
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
@@ -599,24 +600,69 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
         notes: g(r, "Notes"), createdAt: g(r, "Saved at") || new Date().toISOString() };
     }).filter((t) => /^\d{4}-\d{2}-\d{2}$/.test(t.date));
   }
-  const backupName = () => `LERS trips backup ${new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}.csv`;
+  // The backup is a small web page: opens in any phone's browser as a readable table, and carries the data to restore.
+  const longDate = () => new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+  const backupName = () => `LERS trips backup ${longDate()}.html`;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function totalsOf(list) {
+    let km = 0, money = 0, n = 0;
+    list.forEach((t) => { const k = tripKm(t); if (k == null) return; n++; km += k; money += charge(k).money; });
+    return { km, money, n };
+  }
+  function backupHtml() {
+    const list = trips.slice().sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
+    const tot = totalsOf(list);
+    const rows = list.map((t) => {
+      const k = tripKm(t), c = charge(k);
+      const route = [t.from && "From: " + esc(t.from), t.to && "To: " + esc(t.to)].filter(Boolean).join("<br>");
+      return `<tr><td>${esc(fmtDay(t.date))}</td><td><b>${esc(t.client || "-")}</b><br><small>${esc(t.service)}</small>${route ? "<br><small>" + route + "</small>" : ""}${t.notes ? "<br><small><i>" + esc(t.notes) + "</i></small>" : ""}</td>`
+        + `<td class="n">${k == null ? "in progress" : km1(k) + " km"}</td><td class="n">${k == null ? "" : rand(c.money)}</td></tr>`;
+    }).join("\n");
+    const data = JSON.stringify({ app: "LERS Trip Log", version: 2, savedAt: new Date().toISOString(), rates, trips }).replace(/</g, "\\u003c");
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LERS trips backup ${esc(longDate())}</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px;color:#17302b;background:#fff;font-size:15px}h1{font-size:20px;margin:0 0 4px}
+p{margin:4px 0 12px;color:#5b6f6a}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #d6e0dc;padding:8px 6px;text-align:left;vertical-align:top}
+th{font-size:12px;text-transform:uppercase;color:#5b6f6a}.n{text-align:right;white-space:nowrap}small{color:#5b6f6a}.tot{background:#1e4a42;color:#fff;padding:10px 12px;border-radius:10px;margin-bottom:12px}</style>
+</head><body>
+<h1>LERS Trip Log backup</h1>
+<p>Saved ${esc(longDate())}. Keep this file. To get your trips back, open the Trip Log, go to Backup, then "Lost your trips? Restore them", and choose this file.</p>
+<div class="tot">${tot.n} trips · ${km1(tot.km)} km · additional travel ${rand(tot.money)}</div>
+<table><thead><tr><th>Date</th><th>Trip</th><th class="n">Km</th><th class="n">Charge</th></tr></thead><tbody>
+${rows}
+</tbody></table>
+<script type="application/json" id="lers-backup-data">${data}<\/script>
+</body></html>`;
+  }
   function markBackedUp() { try { localStorage.setItem(BKEY, new Date().toISOString()); } catch {} showBackupAge(); }
 
   $("shareBackupBtn").addEventListener("click", async () => {
     if (!trips.length) { toast("No trips to back up yet."); return; }
-    const file = new File([tripsCsv(trips)], backupName(), { type: "text/csv" });
+    const html = backupHtml();
+    const file = new File([html], backupName(), { type: "text/html" });
+    const tot = totalsOf(trips);
+    const caption = `LERS trips backup ${longDate()}: ${tot.n} trips, ${km1(tot.km)} km, additional travel ${rand(tot.money)}. Tap the file to see all the trips.`;
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: "LERS trips backup" }); markBackedUp(); toast("Backup sent"); }
+      try { await navigator.share({ files: [file], title: "LERS trips backup", text: caption }); markBackedUp(); toast("Backup sent"); }
       catch (e) { if (e && e.name !== "AbortError") toast("Couldn't open sharing. Use Save backup on this phone instead."); }
     } else {
-      downloadFile(file.name, tripsCsv(trips), "text/csv"); markBackedUp();
+      downloadFile(file.name, html, "text/html"); markBackedUp();
       toast("This phone can't send files directly. The backup is saved in Downloads.");
     }
   });
   $("backupBtn").addEventListener("click", () => {
     if (!trips.length) { toast("No trips to back up yet."); return; }
-    downloadFile(backupName(), tripsCsv(trips), "text/csv"); markBackedUp(); toast("Backup saved in Downloads");
+    downloadFile(backupName(), backupHtml(), "text/html"); markBackedUp(); toast("Backup saved in Downloads");
   });
+
+  // Send a text straight to WhatsApp (share menu); fall back to copying.
+  async function shareText(text, okMsg) {
+    if (navigator.share) {
+      try { await navigator.share({ text }); return; }
+      catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    copyText(text, okMsg);
+  }
 
   let pendingRestore = null;
   $("restoreFile").addEventListener("change", async (ev) => {
@@ -624,7 +670,10 @@ details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
     if (!f) return;
     try {
       const text = await f.text(); let restored, newRates = null;
-      if (text.trim().startsWith("{")) { const d = JSON.parse(text); if (!Array.isArray(d.trips)) throw 0; restored = d.trips; newRates = d.rates || null; }
+      const fromJson = (j) => { const d = JSON.parse(j); if (!Array.isArray(d.trips)) throw 0; restored = d.trips; newRates = d.rates || null; };
+      const m = text.match(/<script type="application\/json" id="lers-backup-data">([\s\S]*?)<\/script>/);
+      if (m) fromJson(m[1]);
+      else if (text.trim().startsWith("{")) fromJson(text);
       else restored = tripsFromCsv(text);
       if (!restored.length) throw 0;
       pendingRestore = { trips: restored, rates: newRates };
