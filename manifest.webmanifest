@@ -1,0 +1,9 @@
+{
+  "name": "LERS Trip Log",
+  "short_name": "Trip Log",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f4",
+  "theme_color": "#1e4a42",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

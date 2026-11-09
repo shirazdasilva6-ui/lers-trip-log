@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e4a42">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trip Log">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>LERS Trip Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow phone-first column — summary strip, log form, trip list. Odometer digits as the signature detail. */
+:root {
+  --bg: #f3f6f4;
+  --surface: #ffffff;
+  --ink: #17302b;
+  --muted: #5b6f6a;
+  --line: #d6e0dc;
+  --brand: #1e4a42;
+  --brand-ink: #ffffff;
+  --sun: #e9a23b;
+  --sun-soft: #fbefd9;
+  --ok: #2f7d5b;
+  --warn: #b5532a;
+  --odo-bg: #12201d;
+  --odo-fg: #f6f1e6;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a18; --surface: #172522; --ink: #e5eeeb; --muted: #9db0aa; --line: #2a3d39;
+    --brand: #3f8f7f; --brand-ink: #071311; --sun: #f0b354; --sun-soft: #3a2f1c;
+    --ok: #63c296; --warn: #ec8a5f; --odo-bg: #050b0a; --odo-fg: #f6f1e6; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a18; --surface: #172522; --ink: #e5eeeb; --muted: #9db0aa; --line: #2a3d39;
+  --brand: #3f8f7f; --brand-ink: #071311; --sun: #f0b354; --sun-soft: #3a2f1c;
+  --ok: #63c296; --warn: #ec8a5f; --odo-bg: #050b0a; --odo-fg: #f6f1e6; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.backup-age.warn { color: var(--warn); font-weight: 700; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+.wrap { max-width: 640px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.15rem; font-weight: 600; }
+.eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+header { display: grid; gap: 4px; }
+header p { margin: 0; color: var(--muted); }
+.status { font-size: 0.85rem; color: var(--muted); }
+.status.warn { color: var(--warn); }
+
+/* Summary */
+.summary { background: var(--brand); color: var(--brand-ink); border-radius: 14px; padding: 16px; display: grid; gap: 14px; }
+.periods { display: flex; gap: 6px; flex-wrap: wrap; }
+.periods button { font: inherit; font-size: 0.85rem; border: 1px solid color-mix(in srgb, var(--brand-ink) 40%, transparent);
+  background: transparent; color: var(--brand-ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.periods button[aria-pressed="true"] { background: var(--brand-ink); color: var(--brand); font-weight: 700; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { display: grid; gap: 2px; min-width: 0; }
+.stat .v { font-family: var(--font-num); font-weight: 700; font-size: 1.3rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .l { font-size: 0.78rem; opacity: 0.85; }
+.summary .note { font-size: 0.8rem; opacity: 0.85; margin: 0; }
+
+/* Panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 460px) { .grid2 { grid-template-columns: 1fr; } }
+label { display: grid; gap: 4px; font-size: 0.85rem; font-weight: 700; color: var(--muted); min-width: 0; }
+input, select, textarea { font: inherit; font-weight: 400; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 9px; padding: 10px 11px; width: 100%; min-width: 0; }
+textarea { resize: vertical; min-height: 2.6em; }
+input.odo { font-family: var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; background: var(--odo-bg); color: var(--odo-fg); border-color: var(--odo-bg); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--sun); outline-offset: 1px; }
+.hint { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.calc { background: var(--sun-soft); border-radius: 10px; padding: 10px 12px; font-size: 0.92rem; }
+.calc strong { font-family: var(--font-num); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { font: inherit; font-weight: 700; border-radius: 10px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--brand); background: var(--brand); color: var(--brand-ink); }
+.btn.ghost { background: transparent; color: var(--brand); }
+.btn.small { padding: 6px 11px; font-size: 0.85rem; }
+.btn.danger { border-color: var(--warn); background: var(--warn); color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; font: inherit; font-size: 0.88rem; padding: 8px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--brand); color: var(--brand-ink); font-weight: 700; }
+
+/* Trip list */
+.list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.trips { display: grid; gap: 10px; }
+.day { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px; }
+.trip { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.trip.open { border-color: var(--sun); box-shadow: inset 4px 0 0 var(--sun); }
+.trip-top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.trip-top > div { min-width: 0; }
+.client { font-weight: 700; overflow-wrap: anywhere; }
+.svc { font-size: 0.85rem; color: var(--muted); }
+.km { font-family: var(--font-num); font-weight: 700; font-size: 1.15rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.route { font-size: 0.88rem; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.route b { color: var(--muted); font-weight: 700; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.82rem; color: var(--muted); }
+.meta .money { color: var(--ink); font-weight: 700; }
+.pill { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 999px; background: var(--sun-soft); color: var(--warn); }
+.finish { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.finish label { flex: 1 1 160px; }
+.empty { text-align: center; color: var(--muted); padding: 24px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.example-tag { font-size: 0.72rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
+details summary { cursor: pointer; font-weight: 700; color: var(--brand); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg);
+  padding: 10px 16px; border-radius: 10px; font-size: 0.9rem; z-index: 20; max-width: calc(100% - 32px); }
+.copybox { width: 100%; font-family: var(--font-num); font-size: 0.8rem; min-height: 9em; }
+@media (prefers-reduced-motion: no-preference) { .trip { transition: border-color .2s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Lucinda Errand Running Services</span>
+    <h1>Trip Log</h1>
+    <p>Record the kilometres for every errand. The first <span id="freeKmTxt">5</span> km of each trip are free; extra travel is charged at <span id="rateTxt">R5,00</span> per km.</p>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <section class="summary" aria-label="Totals">
+    <div class="periods" role="group" aria-label="Period">
+      <button type="button" data-period="today" aria-pressed="false">Today</button>
+      <button type="button" data-period="week" aria-pressed="false">This week</button>
+      <button type="button" data-period="month" aria-pressed="true">This month</button>
+      <button type="button" data-period="all" aria-pressed="false">All</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="v" id="sKm">0,0</span><span class="l">km driven</span></div>
+      <div class="stat"><span class="v" id="sExtra">0,0</span><span class="l">chargeable km</span></div>
+      <div class="stat"><span class="v" id="sMoney">R0,00</span><span class="l">additional travel</span></div>
+    </div>
+    <p class="note" id="sNote">0 trips</p>
+  </section>
+
+  <section class="panel" aria-labelledby="formTitle">
+    <h2 id="formTitle">Log a trip</h2>
+    <form id="tripForm" novalidate>
+      <div style="display:grid;gap:12px">
+        <div class="grid2">
+          <label>Date<input type="date" id="fDate" required></label>
+          <label>Service
+            <select id="fService">
+              <option>Parcel Collection</option>
+              <option>Large/Heavy Parcel Collection</option>
+              <option>Grocery Shopping</option>
+              <option>Queuing Services</option>
+              <option>Other</option>
+            </select>
+          </label>
+        </div>
+        <label>Client name<input type="text" id="fClient" autocomplete="off" placeholder="e.g. Mrs Daniels"></label>
+        <label>Collection address<input type="text" id="fFrom" autocomplete="off" placeholder="Where you pick up"></label>
+        <label>Delivery address<input type="text" id="fTo" autocomplete="off" placeholder="Where you drop off"></label>
+
+        <div class="seg" role="group" aria-label="How to record distance">
+          <button type="button" data-mode="odo" aria-pressed="true">Odometer readings</button>
+          <button type="button" data-mode="km" aria-pressed="false">Type the km</button>
+        </div>
+
+        <div class="grid2" id="odoFields">
+          <label>Odometer at start<input class="odo" type="number" inputmode="decimal" step="0.1" min="0" id="fOdoStart" placeholder="000000"></label>
+          <label>Odometer at end<input class="odo" type="number" inputmode="decimal" step="0.1" min="0" id="fOdoEnd" placeholder="leave empty if still driving"></label>
+        </div>
+        <label id="kmField" hidden>Kilometres driven (whole trip)<input class="odo" type="number" inputmode="decimal" step="0.1" min="0" id="fKm" placeholder="0.0"></label>
+
+        <div class="calc" id="calc">Enter the readings to see the distance and travel charge.</div>
+        <label>Notes<textarea id="fNotes" rows="2" placeholder="Optional: parcel details, waiting time, priority retainer…"></textarea></label>
+        <div class="actions">
+          <button class="btn" type="submit" id="saveBtn">Save trip</button>
+          <button class="btn ghost" type="reset">Clear</button>
+        </div>
+        <p class="hint" id="formHint">Only have the start reading? Save it now and finish the trip when you're back.</p>
+      </div>
+    </form>
+  </section>
+
+  <section style="display:grid;gap:10px" aria-labelledby="listTitle">
+    <div class="list-head">
+      <h2 id="listTitle">Trips</h2>
+      <div class="actions">
+        <button class="btn ghost small" type="button" id="copyAllBtn">Copy period summary</button>
+        <button class="btn ghost small" type="button" id="csvBtn">Download CSV</button>
+      </div>
+    </div>
+    <div id="copyArea" hidden style="display:grid;gap:6px">
+      <p class="hint">Copying is blocked here. Select the text below and copy it.</p>
+      <textarea class="copybox" id="copyBox" readonly></textarea>
+    </div>
+    <div class="trips" id="trips"></div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Rates (from the LERS standard quote)</summary>
+      <div style="display:grid;gap:12px;margin-top:12px">
+        <div class="grid2">
+          <label>Free km per trip<input type="number" id="setFree" min="0" step="0.5"></label>
+          <label>Rate per extra km (R)<input type="number" id="setRate" min="0" step="0.5"></label>
+        </div>
+        <div class="actions"><button class="btn small" type="button" id="saveRates">Save rates</button></div>
+        <p class="hint">Quote terms: all services include travel within a 5 km radius; additional travel is R5,00 per km. Queuing has a 2-hour minimum, and the R600,00 daily priority retainer is optional and extra. This log only works out the travel part.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="backupTitle">
+    <h2 id="backupTitle">Backup</h2>
+    <p class="hint">Trips are kept only on this phone, in this browser. Clearing browsing data or changing phones deletes them, so save a backup every week or so (e.g. send the file to yourself on WhatsApp).</p>
+    <p class="hint backup-age" id="backupAge">No backup saved yet.</p>
+    <div class="actions">
+      <button class="btn small" type="button" id="backupBtn">Save backup file</button>
+      <label class="btn ghost small" for="restoreFile" style="display:inline-block">Restore from backup</label>
+      <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const DEFAULT_RATES = { freeKm: 5, ratePerKm: 5 };
+  let rates = { ...DEFAULT_RATES };
+  let trips = [];          // [{id, ...data}]
+  let isExample = false;
+  let period = "month";
+  let mode = "odo";
+  let store = null;        // {add, update, remove, saveRates}
+
+  // ---------- formatting ----------
+  const nf1 = new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const nf2 = new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const km1 = (n) => nf1.format(n || 0);
+  const rand = (n) => "R" + nf2.format(n || 0);
+  const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const fmtDay = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const num = (v) => { if (v === "" || v == null) return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
+
+  function tripKm(t) {
+    if (t.status === "open") return null;
+    if (t.odoStart != null && t.odoEnd != null) return Math.max(0, t.odoEnd - t.odoStart);
+    return t.km ?? null;
+  }
+  function charge(km) {
+    if (km == null) return { extra: 0, money: 0 };
+    const extra = Math.max(0, km - rates.freeKm);
+    return { extra, money: Math.round(extra * rates.ratePerKm * 100) / 100 };
+  }
+
+  // ---------- toast ----------
+  let toastT;
+  function toast(msg) { const el = $("toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 2600); }
+  function setStatus(msg, warn) { const s = $("status"); s.textContent = msg; s.classList.toggle("warn", !!warn); }
+
+  // ---------- period ----------
+  function inPeriod(iso) {
+    if (period === "all") return true;
+    const d = new Date(iso + "T00:00:00"), now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === "today") return d >= start;
+    if (period === "week") { const dow = (start.getDay() + 6) % 7; start.setDate(start.getDate() - dow); return d >= start; }
+    if (period === "month") return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    return true;
+  }
+  const periodLabel = () => ({ today: "today", week: "this week", month: "this month", all: "all time" })[period];
+
+  // ---------- render ----------
+  function render() {
+    $("freeKmTxt").textContent = nf1.format(rates.freeKm).replace(/,0$/, "");
+    $("rateTxt").textContent = rand(rates.ratePerKm);
+    const shown = trips.filter((t) => inPeriod(t.date)).sort((a, b) => (b.date + (b.createdAt || "")).localeCompare(a.date + (a.createdAt || "")));
+    let tk = 0, te = 0, tm = 0, open = 0;
+    shown.forEach((t) => { const k = tripKm(t); if (k == null) { open++; return; } const c = charge(k); tk += k; te += c.extra; tm += c.money; });
+    $("sKm").textContent = km1(tk); $("sExtra").textContent = km1(te); $("sMoney").textContent = rand(tm);
+    const done = shown.length - open;
+    $("sNote").textContent = `${done} completed trip${done === 1 ? "" : "s"} ${periodLabel()}` + (open ? ` · ${open} still in progress` : "") + (isExample ? " · example data" : "");
+
+    showBackupAge();
+    const box = $("trips"); box.textContent = "";
+    if (!shown.length) {
+      const e = document.createElement("div"); e.className = "empty";
+      e.textContent = trips.length ? `No trips ${periodLabel()}. Choose "All" to see older trips.` : "No trips yet. Log your first trip above: enter the odometer reading when you leave.";
+      box.append(e); return;
+    }
+    let lastDay = null;
+    shown.forEach((t) => {
+      if (t.date !== lastDay) { const h = document.createElement("div"); h.className = "day"; h.textContent = fmtDay(t.date); box.append(h); lastDay = t.date; }
+      box.append(tripCard(t));
+    });
+  }
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function tripCard(t) {
+    const k = tripKm(t), c = charge(k);
+    const card = el("article", "trip" + (t.status === "open" ? " open" : ""));
+    const top = el("div", "trip-top");
+    const left = el("div");
+    const name = el("div", "client", t.client || "No client name");
+    if (t.example) { name.append(" "); name.append(el("span", "example-tag", "example")); }
+    left.append(name, el("div", "svc", t.service || ""));
+    const right = el("div");
+    if (t.status === "open") right.append(el("span", "pill", "In progress")); else right.append(el("span", "km", km1(k) + " km"));
+    top.append(left, right); card.append(top);
+
+    if (t.from || t.to) {
+      const r = el("div", "route");
+      if (t.from) { const p = el("div"); p.append(el("b", null, "From: "), document.createTextNode(t.from)); r.append(p); }
+      if (t.to) { const p = el("div"); p.append(el("b", null, "To: "), document.createTextNode(t.to)); r.append(p); }
+      card.append(r);
+    }
+    const meta = el("div", "meta");
+    if (t.odoStart != null) meta.append(el("span", null, `Odo ${t.odoStart}${t.odoEnd != null ? " → " + t.odoEnd : " → …"}`));
+    if (t.status !== "open") {
+      meta.append(el("span", null, `${km1(c.extra)} km chargeable`));
+      meta.append(el("span", "money", rand(c.money)));
+    }
+    card.append(meta);
+    if (t.notes) card.append(el("div", "svc", t.notes));
+
+    const acts = el("div", "actions");
+    if (t.status === "open") {
+      const fin = el("div", "finish");
+      const lab = el("label", null, "Odometer at end");
+      const inp = el("input", "odo"); inp.type = "number"; inp.inputMode = "decimal"; inp.step = "0.1"; inp.id = "finish-" + t.id;
+      lab.append(inp);
+      const b = el("button", "btn small", "Finish trip"); b.type = "button";
+      b.onclick = async () => {
+        const end = num(inp.value);
+        if (end == null || end < t.odoStart) { toast(`Enter an end reading of at least ${t.odoStart}.`); inp.focus(); return; }
+        await doWrite(() => store.update(t.id, { odoEnd: end, status: "done" }), "Trip finished");
+      };
+      fin.append(lab, b); card.append(fin);
+    } else {
+      const cp = el("button", "btn ghost small", "Copy for WhatsApp"); cp.type = "button";
+      cp.onclick = () => copyText(tripText(t), "Trip copied. Paste it in WhatsApp.");
+      acts.append(cp);
+    }
+    const del = el("button", "btn ghost small", "Delete"); del.type = "button";
+    del.onclick = () => {
+      if (del.dataset.armed) { doWrite(() => store.remove(t.id), "Trip deleted"); return; }
+      del.dataset.armed = "1"; del.textContent = "Tap again to delete"; del.className = "btn danger small";
+      setTimeout(() => { if (del.isConnected) { delete del.dataset.armed; del.textContent = "Delete"; del.className = "btn ghost small"; } }, 4000);
+    };
+    acts.append(del);
+    card.append(acts);
+    return card;
+  }
+
+  // ---------- text for WhatsApp ----------
+  function tripText(t) {
+    const k = tripKm(t), c = charge(k);
+    return [
+      `*LERS trip – ${fmtDay(t.date)}*`,
+      t.client ? `Client: ${t.client}` : null,
+      `Service: ${t.service}`,
+      t.from ? `Collection: ${t.from}` : null,
+      t.to ? `Delivery: ${t.to}` : null,
+      `Distance: ${km1(k)} km (first ${km1(rates.freeKm)} km included)`,
+      `Additional travel: ${km1(c.extra)} km × ${rand(rates.ratePerKm)} = ${rand(c.money)}`,
+    ].filter(Boolean).join("\n");
+  }
+  function periodText() {
+    const shown = trips.filter((t) => inPeriod(t.date) && t.status !== "open").sort((a, b) => a.date.localeCompare(b.date));
+    let tk = 0, tm = 0;
+    const lines = shown.map((t) => { const k = tripKm(t), c = charge(k); tk += k; tm += c.money; return `• ${t.date} ${t.client || ""} (${t.service}): ${km1(k)} km, ${rand(c.money)}`; });
+    return [`*LERS trip summary – ${periodLabel()}*`, ...lines, `Total: ${km1(tk)} km · additional travel ${rand(tm)}`].join("\n");
+  }
+  async function copyText(text, okMsg) {
+    try { await navigator.clipboard.writeText(text); toast(okMsg); $("copyArea").hidden = true; }
+    catch { $("copyBox").value = text; $("copyArea").hidden = false; $("copyBox").focus(); $("copyBox").select(); }
+  }
+
+  // ---------- form ----------
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+    $("odoFields").hidden = m !== "odo"; $("kmField").hidden = m !== "km";
+    $("formHint").hidden = m !== "odo";
+    updateCalc();
+  }
+  function formKm() {
+    if (mode === "km") return num($("fKm").value);
+    const s = num($("fOdoStart").value), e = num($("fOdoEnd").value);
+    if (s != null && e != null) return e - s;
+    return null;
+  }
+  function updateCalc() {
+    const box = $("calc"); const k = formKm();
+    const s = num($("fOdoStart").value);
+    if (mode === "odo" && s != null && num($("fOdoEnd").value) == null) { box.textContent = "Start reading noted. Save now to finish the trip later."; $("saveBtn").textContent = "Start trip"; return; }
+    $("saveBtn").textContent = "Save trip";
+    if (k == null) { box.textContent = "Enter the readings to see the distance and travel charge."; return; }
+    if (k < 0) { box.textContent = "The end reading is lower than the start reading. Check the numbers."; return; }
+    const c = charge(k); box.textContent = "";
+    box.append("Distance ", el("strong", null, km1(k) + " km"), ` · first ${km1(rates.freeKm)} km free · `, el("strong", null, km1(c.extra) + " km"), " × " + rand(rates.ratePerKm) + " = ", el("strong", null, rand(c.money)));
+  }
+  ["fOdoStart", "fOdoEnd", "fKm"].forEach((id) => $(id).addEventListener("input", updateCalc));
+  document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  $("tripForm").addEventListener("reset", () => setTimeout(() => { $("fDate").value = todayISO(); updateCalc(); }, 0));
+
+  $("tripForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const date = $("fDate").value || todayISO();
+    const base = { date, service: $("fService").value, client: $("fClient").value.trim(), from: $("fFrom").value.trim(), to: $("fTo").value.trim(),
+      notes: $("fNotes").value.trim(), createdAt: new Date().toISOString() };
+    let data;
+    if (mode === "km") {
+      const k = num($("fKm").value);
+      if (k == null || k < 0) { toast("Enter the kilometres driven."); $("fKm").focus(); return; }
+      data = { ...base, km: k, odoStart: null, odoEnd: null, status: "done" };
+    } else {
+      const s = num($("fOdoStart").value), e = num($("fOdoEnd").value);
+      if (s == null) { toast("Enter the odometer reading at the start."); $("fOdoStart").focus(); return; }
+      if (e != null && e < s) { toast("The end reading is lower than the start reading."); $("fOdoEnd").focus(); return; }
+      data = { ...base, odoStart: s, odoEnd: e, km: null, status: e == null ? "open" : "done" };
+    }
+    const ok = await doWrite(() => store.add(data), data.status === "open" ? "Trip started. Finish it in the list when you're back." : "Trip saved");
+    if (ok) { const keepDate = $("fDate").value; $("tripForm").reset(); setTimeout(() => { $("fDate").value = keepDate; }, 0); }
+  });
+
+  document.querySelectorAll(".periods button").forEach((b) => b.addEventListener("click", () => {
+    period = b.dataset.period;
+    document.querySelectorAll(".periods button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    render();
+  }));
+  $("copyAllBtn").addEventListener("click", () => copyText(periodText(), "Summary copied. Paste it in WhatsApp."));
+
+  $("saveRates").addEventListener("click", async () => {
+    const f = num($("setFree").value), r = num($("setRate").value);
+    if (f == null || r == null || f < 0 || r < 0) { toast("Enter both rates as numbers."); return; }
+    await doWrite(() => store.saveRates({ freeKm: f, ratePerKm: r }), "Rates saved");
+  });
+
+  async function doWrite(fn, okMsg) {
+    if (!store) { toast("Still connecting. Try again in a moment."); return false; }
+    try { await fn(); toast(okMsg); return true; }
+    catch (e) {
+      const code = e && e.code;
+      if (code === "invalid_argument") toast("You can view this log but not change it. Ask the owner for Contributor access.");
+      else if (code === "quota_exceeded") toast("The log is full. Delete some old trips first.");
+      else toast("Couldn't save. Check your connection and try again.");
+      return false;
+    }
+  }
+
+  // ---------- example rows (shown only until real data loads) ----------
+  function exampleTrips() {
+    const t = todayISO();
+    return [
+      { id: "ex1", example: true, date: t, client: "Mrs Daniels", service: "Parcel Collection", from: "PostNet, Main Road", to: "12 Oak Street", odoStart: 84210.4, odoEnd: 84228.8, status: "done" },
+      { id: "ex2", example: true, date: t, client: "Mr Pillay", service: "Grocery Shopping", from: "Checkers, Mall", to: "7 Rose Avenue", km: 4.2, odoStart: null, odoEnd: null, status: "done" },
+    ];
+  }
+
+  // ---------- storage ----------
+  function useLocal(reason) {
+    const KEY = "lers-trips-v1", RKEY = "lers-rates-v1";
+    const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+    const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { throw { code: "unavailable" }; } };
+    trips = read(KEY, []); rates = { ...DEFAULT_RATES, ...read(RKEY, {}) }; isExample = false;
+    store = {
+      add: async (d) => { trips.push({ id: "t" + Date.now().toString(36), ...d }); write(KEY, trips); render(); },
+      update: async (id, patch) => { trips = trips.map((t) => (t.id === id ? { ...t, ...patch } : t)); write(KEY, trips); render(); },
+      remove: async (id) => { trips = trips.filter((t) => t.id !== id); write(KEY, trips); render(); },
+      saveRates: async (r) => { rates = r; write(RKEY, r); render(); updateCalc(); },
+    };
+    setStatus(reason + " Trips are saved on this device only.", true);
+    syncRateInputs(); render();
+  }
+  function syncRateInputs() { $("setFree").value = rates.freeKm; $("setRate").value = rates.ratePerKm; }
+
+  // ---------- files (backup / restore / CSV) ----------
+  const BKEY = "lers-last-backup-v1";
+  function downloadFile(filename, text, type) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+  function showBackupAge() {
+    let last = null; try { last = localStorage.getItem(BKEY); } catch {}
+    const p = $("backupAge");
+    if (!last) { p.textContent = trips.length ? "No backup saved yet. Save one now." : "No backup saved yet."; p.classList.toggle("warn", trips.length > 0); return; }
+    const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+    p.textContent = "Last backup: " + (days <= 0 ? "today" : days === 1 ? "yesterday" : days + " days ago") + ".";
+    p.classList.toggle("warn", days >= 7);
+  }
+  $("backupBtn").addEventListener("click", () => {
+    const payload = { app: "LERS Trip Log", version: 1, savedAt: new Date().toISOString(), rates, trips };
+    downloadFile(`LERS-trips-backup-${todayISO()}.json`, JSON.stringify(payload, null, 1), "application/json");
+    try { localStorage.setItem(BKEY, new Date().toISOString()); } catch {}
+    showBackupAge(); toast("Backup saved to Downloads");
+  });
+  let pendingRestore = null;
+  $("restoreFile").addEventListener("change", async (ev) => {
+    const f = ev.target.files && ev.target.files[0]; ev.target.value = "";
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!data || !Array.isArray(data.trips)) throw new Error("bad");
+      pendingRestore = data;
+      const btn = $("backupBtn").parentElement.querySelector("#confirmRestore") || el("button", "btn danger small");
+      btn.id = "confirmRestore"; btn.type = "button";
+      btn.textContent = `Replace ${trips.length} trips with ${data.trips.length} from backup`;
+      btn.onclick = () => {
+        trips = pendingRestore.trips; rates = { ...DEFAULT_RATES, ...(pendingRestore.rates || {}) };
+        try { localStorage.setItem("lers-trips-v1", JSON.stringify(trips)); localStorage.setItem("lers-rates-v1", JSON.stringify(rates)); }
+        catch { toast("Couldn't save on this phone."); return; }
+        pendingRestore = null; btn.remove(); syncRateInputs(); render(); updateCalc(); showBackupAge(); toast("Backup restored");
+      };
+      $("backupBtn").parentElement.append(btn);
+    } catch { toast("That file isn't a LERS Trip Log backup."); }
+  });
+  $("csvBtn").addEventListener("click", saveCsv);
+
+  async function connect() {
+    useLocal("");
+    setStatus("Saved on this phone");
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch {}
+    showBackupAge();
+  }
+
+  async function saveCsv() {
+    const rows = [["Date", "Client", "Service", "Collection address", "Delivery address", "Odometer start", "Odometer end", "Km", "Chargeable km", "Travel charge (R)", "Status", "Notes"]];
+    trips.filter((t) => inPeriod(t.date)).sort((a, b) => a.date.localeCompare(b.date)).forEach((t) => {
+      const k = tripKm(t), c = charge(k);
+      rows.push([t.date, t.client, t.service, t.from, t.to, t.odoStart ?? "", t.odoEnd ?? "", k ?? "", k == null ? "" : c.extra.toFixed(1), k == null ? "" : c.money.toFixed(2), t.status, t.notes]);
+    });
+    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    downloadFile(`LERS-trips-${period}-${todayISO()}.csv`, "﻿" + csv, "text/csv");
+    toast("CSV saved to Downloads");
+  }
+
+  // ---------- boot ----------
+  $("fDate").value = todayISO();
+  syncRateInputs();
+  connect();
+  updateCalc();
+})();
+</script>
+</body>
+</html>
